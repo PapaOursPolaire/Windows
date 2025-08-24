@@ -1,483 +1,384 @@
 @echo off
 chcp 65001 >nul
-setlocal EnableDelayedExpansion
-
-# NE PAS OUBLIER QUE LE BATCH NE GERE PAS LES CARACTERES SPECIAUX
-
-# Configure l'affichage en vert sur noir
+title Préparateur Multiboot Linux - 40+ Distributions
 color 0A
 
+echo    ███╗   ███╗██╗   ██╗██╗  ████████╗██╗██████╗  ██████╗  ██████╗ ████████╗
+echo    ████╗ ████║██║   ██║██║  ╚══██╔══╝██║██╔══██╗██╔═══██╗██╔═══██╗╚══██╔══╝
+echo    ██╔████╔██║██║   ██║██║     ██║   ██║██████╔╝██║   ██║██║   ██║   ██║   
+echo    ██║╚██╔╝██║██║   ██║██║     ██║   ██║██╔══██╗██║   ██║██║   ██║   ██║   
+echo    ██║ ╚═╝ ██║╚██████╔╝███████╗██║   ██║██████╔╝╚██████╔╝╚██████╔╝   ██║   
+echo    ╚═╝     ╚═╝ ╚═════╝ ╚══════╝╚═╝   ╚═╝╚═════╝  ╚═════╝  ╚═════╝    ╚═╝                                                                                  
 echo.
-echo    ██╗███╗   ██╗███████╗████████╗ █████╗ ██╗     ██╗      █████╗ ████████╗██╗ ██████╗ ███╗   ██╗    ██╗      ██████╗  ██████╗ ██╗ ██████╗██╗███████╗██╗     ███████╗
-echo    ██║████╗  ██║██╔════╝╚══██╔══╝██╔══██╗██║     ██║     ██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║    ██║     ██╔═══██╗██╔════╝ ██║██╔════╝██║██╔════╝██║     ██╔════╝
-echo    ██║██╔██╗ ██║███████╗   ██║   ███████║██║     ██║     ███████║   ██║   ██║██║   ██║██╔██╗ ██║    ██║     ██║   ██║██║  ███╗██║██║     ██║█████╗  ██║     ███████╗
-echo    ██║██║╚██╗██║╚════██║   ██║   ██╔══██║██║     ██║     ██╔══██║   ██║   ██║██║   ██║██║╚██╗██║    ██║     ██║   ██║██║   ██║██║██║     ██║██╔══╝  ██║     ╚════██║
-echo    ██║██║ ╚████║███████║   ██║   ██║  ██║███████╗███████╗██║  ██║   ██║   ██║╚██████╔╝██║ ╚████║    ███████╗╚██████╔╝╚██████╔╝██║╚██████╗██║███████╗███████╗███████║
-echo    ╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝    ╚══════╝ ╚═════╝  ╚═════╝ ╚═╝ ╚═════╝╚═╝╚══════╝╚══════╝╚══════╝
 echo.
+echo Ce script prépare votre disque pour installer plusieurs OS Linux
+echo ATTENTION: Sauvegardez vos données avant de continuer!
+echo.
+pause
 
+:check_admin
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo [ERREUR] Ce script necessite des droits administrateur.
-    echo    Faites un clic droit sur le fichier et "Executer en tant qu'administrateur"
+    echo ❌ Privilèges administrateur requis!
+    echo    → Clic droit → "Exécuter en tant qu'administrateur"
     pause
-    exit /b
+    exit /b 1
 )
 
-echo [OK] Droits administrateur detectes
+:select_disk
+echo.
+echo Disques disponibles:
+echo.
+echo list disk > temp_cmd.txt
+diskpart /s temp_cmd.txt
+del temp_cmd.txt
+echo.
+set /p disk_num="Sélectionnez le disque (numéro): "
+
+:get_disk_info
+echo.
+echo Analyse du disque %disk_num%...
+(
+echo select disk %disk_num%
+echo detail disk
+) > temp_cmd.txt
+diskpart /s temp_cmd.txt > disk_info.txt
+del temp_cmd.txt
+
+for /f "tokens=2" %%a in ('findstr /i "Disk ID" disk_info.txt') do set disk_id=%%a
+for /f "tokens=3" %%a in ('findstr /i "Free Space" disk_info.txt') do set free_space=%%a
+
+echo.
+echo Informations du disque:
+type disk_info.txt | findstr /i "Type\|Status\|Health\|Capacity\|Free"
+del disk_info.txt
+
+:get_total_capacity
+echo.
+(
+echo select disk %disk_num%
+echo list partition
+) > temp_cmd.txt
+diskpart /s temp_cmd.txt > partition_info.txt
+del temp_cmd.txt
+
+echo.
+echo Partitions actuelles:
+type partition_info.txt
+echo.
+set /p source_partition="Partition à diviser (numéro): "
+
+REM Calcul de la capacité totale approximative
+for /f "tokens=3" %%a in ('findstr /i "Primary\|Logical" partition_info.txt') do (
+    set partition_size=%%a
+    set partition_size=!partition_size:~0,-2!
+    set /a total_capacity+=!partition_size!
+)
+del partition_info.txt
+
+if not defined total_capacity set total_capacity=500000
+echo Capacité estimée disponible: %total_capacity% MB
+
+:count_os
+echo.
+echo Combien d'OS Linux voulez-vous installer au total ?
+set /p os_count="Nombre d'OS (1-20): "
+if %os_count% LSS 1 set os_count=1
+if %os_count% GTR 20 set os_count=20
+
+REM Calcul des recommandations selon la capacité
+set /a base_size=%total_capacity%/(%os_count%*2)
+set /a small_size=%base_size%/3
+set /a medium_size=%base_size%*2/3
+set /a large_size=%base_size%
+set /a huge_size=%base_size%*3/2
+
+:show_linux_list
+echo.
+echo                    DISTRIBUTIONS LINUX DISPONIBLES
+echo.
+echo DISTRIBUTIONS DÉBUTANT:
+echo  1. Ubuntu LTS           11. Linux Mint Cinnamon  21. Elementary OS
+echo  2. Pop!_OS              12. Linux Mint MATE      22. Zorin OS
+echo  3. Ubuntu MATE          13. Linux Mint XFCE      23. Peppermint OS
+echo  4. Kubuntu              14. Manjaro XFCE         24. MX Linux
+echo  5. Xubuntu              15. Manjaro KDE
+echo  6. Lubuntu              16. Manjaro GNOME
+echo  7. Ubuntu Budgie        17. EndeavourOS
+echo  8. Ubuntu Studio        18. Garuda Linux
+echo  9. Edubuntu             19. ArcoLinux
+echo 10. Ubuntu Unity         20. Artix Linux
+echo.
+echo DISTRIBUTIONS INTERMÉDIAIRES:
+echo 25. Fedora Workstation   31. openSUSE Leap        37. Mageia
+echo 26. Fedora KDE           32. openSUSE Tumbleweed  38. PCLinuxOS
+echo 27. Fedora XFCE          33. Debian Stable        39. Solus
+echo 28. CentOS Stream        34. Debian Testing       40. Void Linux
+echo 29. Rocky Linux          35. Kali Linux           41. Alpine Linux
+echo 30. AlmaLinux            36. Parrot Security
+echo.
+echo DISTRIBUTIONS AVANCÉES:
+echo 42. Arch Linux           46. Gentoo               50. NixOS
+echo 43. Artix Linux          47. Calculate Linux      51. GuixSD
+echo 44. BlackArch            48. Funtoo               52. CRUX
+echo 45. ArchBang             49. Slackware            53. Linux From Scratch
+echo.
+echo DISTRIBUTIONS SPÉCIALISÉES:
+echo 54. Kali Linux           58. Pentoo               62. Tails
+echo 55. Parrot Security      59. BlackArch            63. Kodachi
+echo 56. BackBox              60. CAINE                64. Qubes OS
+echo 57. Samurai WTF          61. DEFT
 echo.
 
-# WIngeet est dispo directement sur Windows 11 ?
-echo [INFO] Verification de Winget...
-winget --version >nul 2>&1
+set selected_os=
+set partition_configs=
+
+:select_os_loop
+echo.
+echo SÉLECTION DES OS (%os_count% à choisir):
+for /L %%i in (1,1,%os_count%) do (
+    echo.
+    echo === OS numéro %%i ===
+    set /p "os_choice=Choisissez l'OS %%i (1-64): "
+    call :get_os_name !os_choice! os_name
+    echo Sélectionné: !os_name!
+    call :configure_os_partition %%i !os_choice! "!os_name!"
+)
+
+:show_configuration_summary
+echo.
+echo                      RÉSUMÉ DE LA CONFIGURATION
+echo.
+
+call :display_all_configs
+
+set /a total_size_mb=0
+for /L %%i in (1,1,%os_count%) do (
+    if defined partition_size_%%i (
+        call set size=%%partition_size_%%i%%
+        set /a total_size_mb+=!size!
+    )
+)
+
+echo.
+echo STATISTIQUES:
+echo.
+echo - Nombre total d'OS: %os_count%
+echo - Espace total requis: %total_size_mb% MB (≈ %total_size_mb%/%1024% GB)
+echo - Espace disponible estimé: %total_capacity% MB
+if %total_size_mb% GTR %total_capacity% (
+    echo ⚠️  ATTENTION: Espace insuffisant! Réduisez les tailles.
+)
+
+echo.
+echo DÉTAILS DES PARTITIONS À CRÉER:
+call :show_partition_details
+
+:confirm_creation
+echo.
+echo ⚠️  CONFIRMATION FINALE:
+echo.
+echo Disque cible: %disk_num%
+echo Partition source: %source_partition%
+echo Nombre de nouvelles partitions: %os_count%
+echo.
+set /p confirm="Procéder au partitionnement? (OUI/non): "
+if /i not "%confirm%"=="OUI" (
+    echo ❌ Opération annulée par l'utilisateur
+    pause
+    exit /b 0
+)
+
+:create_partitions
+echo.
+echo CRÉATION DES PARTITIONS EN COURS...
+echo.
+
+REM Calcul de l'espace à libérer
+set /a shrink_size=%total_size_mb%
+
+echo 1️  Réduction de la partition %source_partition% de %shrink_size% MB...
+(
+echo select disk %disk_num%
+echo select partition %source_partition%
+echo shrink desired=%shrink_size%
+) > temp_cmd.txt
+diskpart /s temp_cmd.txt
 if %errorLevel% neq 0 (
-    echo [ATTENTION] Winget non detecte. Installation automatique en cours...
-    echo    Telechargement depuis GitHub...
+    echo ❌ Erreur lors de la réduction
+    del temp_cmd.txt
+    pause
+    exit /b 1
+)
+del temp_cmd.txt
+
+echo ✅ Réduction terminée!
+
+echo.
+echo 2️  Création des nouvelles partitions...
+
+for /L %%i in (1,1,%os_count%) do (
+    call set size=%%partition_size_%%i%%
+    call set name=%%partition_name_%%i%%
+    echo Création partition %%i: !name! (!size! MB)
     
-    # Telecharge et installe Winget avec ses dependances via PowerShell
-    powershell -Command "& {
-        $progressPreference = 'silentlyContinue'
-        $latestWingetMsixBundleUri = $(Invoke-RestMethod https://api.github.com/repos/microsoft/winget-cli/releases/latest).assets.browser_download_url | Where-Object {$_.EndsWith('.msixbundle')}
-        $latestWingetMsixBundle = $latestWingetMsixBundleUri.Split('/')[-1]
-        Write-Information 'Telechargement du dernier package Microsoft.VCLibs.x64.14.00.Desktop...'
-        Invoke-WebRequest -Uri https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx -OutFile Microsoft.VCLibs.x64.14.00.Desktop.appx
-        Write-Information 'Telechargement du dernier package Microsoft.UI.Xaml.2.8...'  
-        Invoke-WebRequest -Uri https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx -OutFile Microsoft.UI.Xaml.2.8.x64.appx
-        Write-Information 'Telechargement du dernier Winget...'
-        Invoke-WebRequest -Uri $latestWingetMsixBundleUri -OutFile $latestWingetMsixBundle
-        Write-Information 'Installation des dependances...'
-        Add-AppxPackage Microsoft.VCLibs.x64.14.00.Desktop.appx
-        Add-AppxPackage Microsoft.UI.Xaml.2.8.x64.appx
-        Write-Information 'Installation de Winget...'
-        Add-AppxPackage $latestWingetMsixBundle
-        Write-Information 'Nettoyage des fichiers temporaires...'
-        Remove-Item Microsoft.VCLibs.x64.14.00.Desktop.appx
-        Remove-Item Microsoft.UI.Xaml.2.8.x64.appx 
-        Remove-Item $latestWingetMsixBundle
-    }"
+    (
+    echo select disk %disk_num%
+    echo create partition primary size=!size!
+    echo assign
+    echo format fs=ext4 quick label="!name!"
+    ) > temp_cmd.txt
+    diskpart /s temp_cmd.txt >nul
+    del temp_cmd.txt
     
-    # Verifie que Winget s'est bien installé
-    timeout /t 5 /nobreak >nul
-    winget --version >nul 2>&1
-    if %errorLevel% neq 0 (
-        echo [ERREUR] Echec de l'installation automatique de Winget.
-        echo    Installation manuelle requise depuis : https://aka.ms/getwinget
-        pause
-        exit /b
-    ) else (
-        echo [OK] Winget installe avec succes !
-    )
-) else (
-    echo [OK] Winget est disponible
-)
-
-# Installe Chocolatey s'il n'est pas deja present
-echo.
-echo [INFO] Installation de Chocolatey...
-powershell -Command "if (!(Get-Command choco -ErrorAction SilentlyContinue)) { Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')) }"
-echo [OK] Chocolatey pret
-
-echo.
-echo                      DEBUT DE L'INSTALLATION
-
-echo.
-echo Outils et applications pour developpeurs, creatifs et usage quotidien
-
-# Outils de controle de version
-set /p install_git="Installer Git ? (o/N): "
-if /i "!install_git!"=="o" (
-    echo Installation de Git...
-    winget install --id Git.Git -e --silent
-)
-
-set /p install_lazygit="Installer Lazygit ? (o/N): "
-if /i "!install_lazygit!"=="o" (
-    echo Installation de Lazygit...
-    winget install --id JesseDuffield.lazygit -e --silent
-)
-
-# Docker pour la conteneurisation
-set /p install_docker="Installer Docker Desktop ? (o/N): "
-if /i "!install_docker!"=="o" (
-    echo Installation de Docker Desktop...
-    winget install --id Docker.DockerDesktop -e --silent
-)
-
-# Editeurs de code et IDE
-set /p install_vscode="Installer Visual Studio Code ? (o/N): "
-if /i "!install_vscode!"=="o" (
-    echo Installation de VS Code...
-    winget install --id Microsoft.VisualStudioCode -e --silent
-)
-
-set /p install_vscodium="Installer VSCodium ? (o/N): "
-if /i "!install_vscodium!"=="o" (
-    echo Installation de VSCodium...
-    winget install --id VSCodium.VSCodium -e --silent
-)
-
-set /p install_neovim="Installer Neovim ? (o/N): "
-if /i "!install_neovim!"=="o" (
-    echo Installation de Neovim...
-    winget install --id Neovim.Neovim -e --silent
-)
-
-# Terminaux avances
-set /p install_terminal="Installer Windows Terminal ? (o/N): "
-if /i "!install_terminal!"=="o" (
-    echo Installation de Windows Terminal...
-    winget install --id Microsoft.WindowsTerminal -e --silent
-)
-
-set /p install_alacritty="Installer Alacritty ? (o/N): "
-if /i "!install_alacritty!"=="o" (
-    echo Installation d'Alacritty...
-    winget install --id Alacritty.Alacritty -e --silent
-)
-
-# Langages de programmation et leurs outils
-set /p install_nodejs="Installer Node.js ? (o/N): "
-if /i "!install_nodejs!"=="o" (
-    echo Installation de Node.js...
-    winget install --id OpenJS.NodeJS -e --silent
-)
-
-set /p install_python="Installer Python ? (o/N): "
-if /i "!install_python!"=="o" (
-    echo Installation de Python...
-    winget install --id Python.Python.3.12 -e --silent
-)
-
-set /p install_go="Installer Go ? (o/N): "
-if /i "!install_go!"=="o" (
-    echo Installation de Go...
-    winget install --id GoLang.Go -e --silent
-)
-
-set /p install_rust="Installer Rust ? (o/N): "
-if /i "!install_rust!"=="o" (
-    echo Installation de Rust...
-    winget install --id Rustlang.Rustup -e --silent
-)
-
-set /p install_java="Installer OpenJDK ? (o/N): "
-if /i "!install_java!"=="o" (
-    echo Installation d'OpenJDK...
-    winget install --id Microsoft.OpenJDK.17 -e --silent
-)
-
-set /p install_dotnet="Installer .NET SDK ? (o/N): "
-if /i "!install_dotnet!"=="o" (
-    echo Installation du .NET SDK...
-    winget install --id Microsoft.DotNet.SDK.8 -e --silent
-)
-
-# Clients pour tester les API
-set /p install_postman="Installer Postman ? (o/N): "
-if /i "!install_postman!"=="o" (
-    echo Installation de Postman...
-    winget install --id Postman.Postman -e --silent
-)
-
-# Outils de gestion de bases de donnees
-set /p install_dbeaver="Installer DBeaver ? (o/N): "
-if /i "!install_dbeaver!"=="o" (
-    echo Installation de DBeaver...
-    winget install --id dbeaver.dbeaver -e --silent
-)
-
-set /p install_mysql="Installer MySQL Workbench ? (o/N): "
-if /i "!install_mysql!"=="o" (
-    echo Installation de MySQL Workbench...
-    winget install --id Oracle.MySQLWorkbench -e --silent
-)
-    
-echo.
-echo Editeurs de texte et outils de prise de notes
-
-set /p install_obsidian="Installer Obsidian ? (o/N): "
-if /i "!install_obsidian!"=="o" (
-    echo Installation d'Obsidian...
-    winget install --id Obsidian.Obsidian -e --silent
-)
-
-set /p install_joplin="Installer Joplin ? (o/N): "
-if /i "!install_joplin!"=="o" (
-    echo Installation de Joplin...
-    winget install --id Joplin.Joplin -e --silent
+    echo   Partition %%i créée
 )
 
 echo.
-echo Bureautique et utilitaires systeme
+echo  PARTITIONNEMENT TERMINÉ AVEC SUCCÈS!
+echo.
 
-set /p install_powertoys="Installer PowerToys ? (o/N): "
-if /i "!install_powertoys!"=="o" (
-    echo Installation de PowerToys...
-    winget install --id Microsoft.PowerToys -e --silent
-)
-
-set /p install_ccleaner="Installer CCleaner ? (o/N): "
-if /i "!install_ccleaner!"=="o" (
-    echo Installation de CCleaner...
-    winget install --id Piriform.CCleaner -e --silent
-)
-
-set /p install_7zip="Installer 7-Zip ? (o/N): "
-if /i "!install_7zip!"=="o" (
-    echo Installation de 7-Zip...
-    winget install --id 7zip.7zip -e --silent
-)
+:show_final_results
+echo  Nouvelles partitions créées:
+(
+echo select disk %disk_num%
+echo list partition
+) > temp_cmd.txt
+diskpart /s temp_cmd.txt
+del temp_cmd.txt
 
 echo.
-echo Internet et communication
-
-# Navigateurs web alternatifs
-set /p install_firefox="Installer Firefox ? (o/N): "
-if /i "!install_firefox!"=="o" (
-    echo Installation de Firefox...
-    winget install --id Mozilla.Firefox -e --silent
-)
-
-set /p install_brave="Installer Brave Browser ? (o/N): "
-if /i "!install_brave!"=="o" (
-    echo Installation de Brave...
-    winget install --id Brave.Brave -e --silent
-)
-
-set /p install_chrome="Installer Google Chrome ? (o/N): "
-if /i "!install_chrome!"=="o" (
-    echo Installation de Google Chrome...
-    winget install --id Google.Chrome -e --silent
-)
-
-# Applications de messagerie et communication
-set /p install_discord="Installer Discord ? (o/N): "
-if /i "!install_discord!"=="o" (
-    echo Installation de Discord...
-    winget install --id Discord.Discord -e --silent
-)
-
-set /p install_signal="Installer Signal ? (o/N): "
-if /i "!install_signal!"=="o" (
-    echo Installation de Signal...
-    winget install --id OpenWhisperSystems.Signal -e --silent
-)
-
-set /p install_telegram="Installer Telegram ? (o/N): "
-if /i "!install_telegram!"=="o" (
-    echo Installation de Telegram...
-    winget install --id Telegram.TelegramDesktop -e --silent
-)
-
-set /p install_thunderbird="Installer Thunderbird ? (o/N): "
-if /i "!install_thunderbird!"=="o" (
-    echo Installation de Thunderbird...
-    winget install --id Mozilla.Thunderbird -e --silent
-)
-
-set /p install_slack="Installer Slack ? (o/N): "
-if /i "!install_slack!"=="o" (
-    echo Installation de Slack...
-    winget install --id SlackTechnologies.Slack -e --silent
-)
-
+echo  ÉTAPES SUIVANTES:
 echo.
-echo MULTIMEDIA : Lecture, edition audio/video et streaming
-# Lecteurs multimedia
-set /p install_vlc="Installer VLC Media Player ? (o/N): "
-if /i "!install_vlc!"=="o" (
-    echo Installation de VLC...
-    winget install --id VideoLAN.VLC -e --silent
-)
-
-set /p install_mpv="Installer MPV ? (o/N): "
-if /i "!install_mpv!"=="o" (
-    echo Installation de MPV...
-    winget install --id shinchiro.mpv -e --silent
-)
-
-# Outils d'edition audio et video
-set /p install_obs="Installer OBS Studio ? (o/N): "
-if /i "!install_obs!"=="o" (
-    echo Installation d'OBS Studio...
-    winget install --id OBSProject.OBSStudio -e --silent
-)
-
-set /p install_audacity="Installer Audacity ? (o/N): "
-if /i "!install_audacity!"=="o" (
-    echo Installation d'Audacity...
-    winget install --id Audacity.Audacity -e --silent
-)
-
-set /p install_kdenlive="Installer Kdenlive ? (o/N): "
-if /i "!install_kdenlive!"=="o" (
-    echo Installation de Kdenlive...
-    winget install --id KDE.Kdenlive -e --silent
-)
-
+echo 1️  Redémarrez avec le premier OS à installer
+echo 2️  Installez les OS dans l'ordre de votre choix
+echo 3️  Le dernier OS installé configurera automatiquement GRUB
+echo 4️  Utilisez 'update-grub' après chaque nouvelle installation
 echo.
-echo DESIGN ET IMAGE : Creation graphique, retouche photo et modelisation 3D
-
-set /p install_gimp="Installer GIMP ? (o/N): "
-if /i "!install_gimp!"=="o" (
-    echo Installation de GIMP...
-    winget install --id GIMP.GIMP -e --silent
-)
-
-set /p install_krita="Installer Krita ? (o/N): "
-if /i "!install_krita!"=="o" (
-    echo Installation de Krita...
-    winget install --id KDE.Krita -e --silent
-)
-
-set /p install_inkscape="Installer Inkscape ? (o/N): "
-if /i "!install_inkscape!"=="o" (
-    echo Installation d'Inkscape...
-    winget install --id Inkscape.Inkscape -e --silent
-)
-
-set /p install_blender="Installer Blender ? (o/N): "
-if /i "!install_blender!"=="o" (
-    echo Installation de Blender...
-    winget install --id BlenderFoundation.Blender -e --silent
-)
-
-# GAMING - Plateformes de jeux et outils gaming
+echo  CONSEILS:
+echo - Gardez ce script et ses résultats pour référence
+echo - Notez les numéros de partitions pour chaque OS
+echo - Installez Ubuntu/Debian en dernier pour un meilleur GRUB
+echo - Sauvegardez la table de partition: 'sudo sfdisk -d /dev/sdX > backup.txt'
 echo.
-echo === GAMING ===
 
-set /p install_steam="Installer Steam ? (o/N): "
-if /i "!install_steam!"=="o" (
-    echo Installation de Steam...
-    winget install --id Valve.Steam -e --silent
-)
-
-set /p install_heroic="Installer Heroic Games Launcher ? (o/N): "
-if /i "!install_heroic!"=="o" (
-    echo Installation d'Heroic Games Launcher...
-    winget install --id HeroicGamesLauncher.HeroicGamesLauncher -e --silent
-)
-
-echo.
-echo SECURITE : Gestionnaires de mots de passe et outils de securite
-
-set /p install_keepass="Installer KeePassXC ? (o/N): "
-if /i "!install_keepass!"=="o" (
-    echo Installation de KeePassXC...
-    winget install --id KeePassXCTeam.KeePassXC -e --silent
-)
-
-set /p install_bitwarden="Installer Bitwarden ? (o/N): "
-if /i "!install_bitwarden!"=="o" (
-    echo Installation de Bitwarden...
-    winget install --id Bitwarden.Bitwarden -e --silent
-)
-
-echo.
-echo AUTRES OUTILS - Utilitaires divers et outils systeme
-
-set /p install_etcher="Installer Balena Etcher ? (o/N): "
-if /i "!install_etcher!"=="o" (
-    echo Installation de Balena Etcher...
-    winget install --id Balena.BalenaEtcher -e --silent
-)
-
-set /p install_virtualbox="Installer VirtualBox ? (o/N): "
-if /i "!install_virtualbox!"=="o" (
-    echo Installation de VirtualBox...
-    winget install --id Oracle.VirtualBox -e --silent
-)
-
-set /p install_rufus="Installer Rufus ? (o/N): "
-if /i "!install_rufus!"=="o" (
-    echo Installation de Rufus...
-    winget install --id Rufus.Rufus -e --silent
-)
-
-echo.
-echo OUTILS IA - Applications d'intelligence artificielle et modeles de langage
-set /p install_gpt4all="Installer GPT4All ? (o/N): "
-if /i "!install_gpt4all!"=="o" (
-    echo Installation de GPT4All...
-    choco install gpt4all -y
-)
-
-set /p install_lmstudio="Installer LM Studio ? (o/N): "
-if /i "!install_lmstudio!"=="o" (
-    echo Installation de LM Studio...
-    winget install --id LMStudio.LMStudio -e --silent
-)
-
-echo.
-echo EXTENSIONS VS CODE - Installe les extensions les plus utiles pour le dev
-
-where code >nul 2>&1
-if %errorLevel% equ 0 (
-    set /p install_vscode_ext="Installer les extensions VS Code recommandees ? (o/N): "
-    if /i "!install_vscode_ext!"=="o" (
-        echo Installation des extensions VS Code...
-        code --install-extension ms-python.python --force
-        code --install-extension ms-vscode.vscode-typescript-next --force
-        code --install-extension bradlc.vscode-tailwindcss --force
-        code --install-extension esbenp.prettier-vscode --force
-        code --install-extension ms-vscode.vscode-json --force
-        code --install-extension humao.rest-client --force
-        code --install-extension rangav.vscode-thunder-client --force
-        code --install-extension ms-vscode-remote.remote-wsl --force
-        code --install-extension GitHub.copilot --force
-        code --install-extension ms-vscode.powershell --force
-        echo [OK] Extensions VS Code installees
-    )
-)
-
-echo.
-echo Configuration systeme et finalisation
-
-# Configure Git avec nom et email utilisateur
-where git >nul 2>&1
-if %errorLevel% equ 0 (
-    set /p config_git="Configurer Git ? (o/N): "
-    if /i "!config_git!"=="o" (
-        set /p git_name="Nom d'utilisateur Git: "
-        set /p git_email="Email Git: "
-        git config --global user.name "!git_name!"
-        git config --global user.email "!git_email!"
-        git config --global init.defaultBranch main
-        echo [OK] Git configure
-    )
-)
-
-# Lance les mises a jour Windows via PowerShell
-set /p update_system="Effectuer une mise a jour Windows ? (o/N): "
-if /i "!update_system!"=="o" (
-    echo Mise a jour du systeme...
-    powershell -Command "Install-Module PSWindowsUpdate -Force; Get-WUInstall -AcceptAll"
-)
-
-# FINALISATION - Affiche le resume et propose le redemarrage
-echo.
-echo                        INSTALLATION TERMINEE
-echo.
-echo [OK] L'installation des logiciels selectionnes est terminee !
-echo.
-echo [INFO] Prochaines etapes recommandees :
-echo    1. Redemarrer l'ordinateur (optionnel mais conseille)
-echo    2. Configurer vos comptes utilisateur dans les applications
-echo    3. Personnaliser les parametres selon vos preferences
-echo.
-echo [CONSEIL] Conseils :
-echo    - Verifiez les mises a jour dans chaque application
-echo    - Configurez la synchronisation de vos donnees
-echo    - Explorez les plugins et extensions disponibles
-echo.
-set /p restart_now="Redemarrer maintenant ? (o/N): "
-if /i "!restart_now!"=="o" (
-    echo Redemarrage dans 10 secondes...
-    timeout /t 10
-    shutdown /r /t 0
-)
-
-echo.
-echo Merci d'avoir utilise ce script d'installation !
 pause
-exit /b
+exit /b 0
+
+:get_os_name
+set choice=%1
+if "%choice%"=="1" set "%2=Ubuntu LTS"
+if "%choice%"=="2" set "%2=Pop!_OS"
+if "%choice%"=="3" set "%2=Ubuntu MATE"
+if "%choice%"=="4" set "%2=Kubuntu"
+if "%choice%"=="5" set "%2=Xubuntu"
+if "%choice%"=="6" set "%2=Lubuntu"
+if "%choice%"=="7" set "%2=Ubuntu Budgie"
+if "%choice%"=="8" set "%2=Ubuntu Studio"
+if "%choice%"=="9" set "%2=Edubuntu"
+if "%choice%"=="10" set "%2=Ubuntu Unity"
+if "%choice%"=="11" set "%2=Linux Mint Cinnamon"
+if "%choice%"=="12" set "%2=Linux Mint MATE"
+if "%choice%"=="13" set "%2=Linux Mint XFCE"
+if "%choice%"=="14" set "%2=Manjaro XFCE"
+if "%choice%"=="15" set "%2=Manjaro KDE"
+if "%choice%"=="16" set "%2=Manjaro GNOME"
+if "%choice%"=="17" set "%2=EndeavourOS"
+if "%choice%"=="18" set "%2=Garuda Linux"
+if "%choice%"=="19" set "%2=ArcoLinux"
+if "%choice%"=="20" set "%2=Artix Linux"
+if "%choice%"=="21" set "%2=Elementary OS"
+if "%choice%"=="22" set "%2=Zorin OS"
+if "%choice%"=="23" set "%2=Peppermint OS"
+if "%choice%"=="24" set "%2=MX Linux"
+if "%choice%"=="25" set "%2=Fedora Workstation"
+if "%choice%"=="26" set "%2=Fedora KDE"
+if "%choice%"=="27" set "%2=Fedora XFCE"
+if "%choice%"=="28" set "%2=CentOS Stream"
+if "%choice%"=="29" set "%2=Rocky Linux"
+if "%choice%"=="30" set "%2=AlmaLinux"
+if "%choice%"=="31" set "%2=openSUSE Leap"
+if "%choice%"=="32" set "%2=openSUSE Tumbleweed"
+if "%choice%"=="33" set "%2=Debian Stable"
+if "%choice%"=="34" set "%2=Debian Testing"
+if "%choice%"=="35" set "%2=Kali Linux"
+if "%choice%"=="36" set "%2=Parrot Security"
+if "%choice%"=="37" set "%2=Mageia"
+if "%choice%"=="38" set "%2=PCLinuxOS"
+if "%choice%"=="39" set "%2=Solus"
+if "%choice%"=="40" set "%2=Void Linux"
+if "%choice%"=="41" set "%2=Alpine Linux"
+if "%choice%"=="42" set "%2=Arch Linux"
+if "%choice%"=="43" set "%2=Artix Linux"
+if "%choice%"=="44" set "%2=BlackArch"
+if "%choice%"=="45" set "%2=ArchBang"
+if "%choice%"=="46" set "%2=Gentoo"
+if "%choice%"=="47" set "%2=Calculate Linux"
+if "%choice%"=="48" set "%2=Funtoo"
+if "%choice%"=="49" set "%2=Slackware"
+if "%choice%"=="50" set "%2=NixOS"
+if "%choice%"=="51" set "%2=GuixSD"
+if "%choice%"=="52" set "%2=CRUX"
+if "%choice%"=="53" set "%2=Linux From Scratch"
+if "%choice%"=="54" set "%2=Kali Linux Security"
+if "%choice%"=="55" set "%2=Parrot Security OS"
+if "%choice%"=="56" set "%2=BackBox"
+if "%choice%"=="57" set "%2=Samurai WTF"
+if "%choice%"=="58" set "%2=Pentoo"
+if "%choice%"=="59" set "%2=BlackArch Security"
+if "%choice%"=="60" set "%2=CAINE"
+if "%choice%"=="61" set "%2=DEFT"
+if "%choice%"=="62" set "%2=Tails"
+if "%choice%"=="63" set "%2=Kodachi"
+if "%choice%"=="64" set "%2=Qubes OS"
+goto :eof
+
+:configure_os_partition
+set slot=%1
+set choice=%2
+set os_name=%3
+
+REM Définition des tailles recommandées selon le type d'OS
+set recommended_size=%medium_size%
+
+REM Ajustements selon l'OS spécifique
+if %choice% LEQ 24 set recommended_size=%medium_size%
+if %choice% GEQ 25 if %choice% LEQ 41 set recommended_size=%large_size%
+if %choice% GEQ 42 if %choice% LEQ 53 set recommended_size=%huge_size%
+if %choice% GEQ 54 set recommended_size=%large_size%
+
+REM Ajustements spéciaux
+if "%choice%"=="8" set recommended_size=%huge_size%
+if "%choice%"=="35" set recommended_size=%huge_size%
+if "%choice%"=="36" set recommended_size=%huge_size%
+if "%choice%"=="44" set recommended_size=%huge_size%
+if "%choice%"=="64" set recommended_size=%huge_size%
+
+echo Taille recommandée pour %os_name%: %recommended_size% MB
+set /p "partition_size=Taille désirée en MB (recommandé: %recommended_size%): "
+if "%partition_size%"=="" set partition_size=%recommended_size%
+
+set partition_size_%slot%=%partition_size%
+set partition_name_%slot%=%os_name%
+goto :eof
+
+:display_all_configs
+for /L %%i in (1,1,%os_count%) do (
+    call set name=%%partition_name_%%i%%
+    call set size=%%partition_size_%%i%%
+    echo %%i. !name! - !size! MB
+)
+goto :eof
+
+:show_partition_details
+echo.
+for /L %%i in (1,1,%os_count%) do (
+    call set name=%%partition_name_%%i%%
+    call set size=%%partition_size_%%i%%
+    echo Partition %%i: !name!
+    echo   - Taille: !size! MB
+    echo   - Format: ext4 (modifiable lors de l'installation)
+    echo   - Label: !name!
+    echo.
+)
+goto :eof
