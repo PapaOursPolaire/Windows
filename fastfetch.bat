@@ -1,7 +1,7 @@
 @echo off
 setlocal ENABLEDELAYEDEXPANSION
 
-echo === [Fastfetch Setup - CMD Edition] ===
+echo Fastfetch Setup - powered by PapaOursPolaire, available on GitHub
 
 REM Définir le dossier d'installation
 set "FF_DIR=%USERPROFILE%\fastfetch"
@@ -42,7 +42,7 @@ REM (On n'utilise pas powershell, donc on ne modifie pas dynamiquement le JSON)
 
 echo.
 echo ❗ Etape 2 : Modifier config.json pour utiliser le logo personnalisé
-echo ► Ouvre ce fichier avec Notepad :
+echo ► Ouvre ce fichier avec un éditeur de texte :
 echo   %APPDATA%\fastfetch\config.json
 echo ► Remplace :
 echo   "logo": "windows"
@@ -65,7 +65,7 @@ echo   "%FF_DIR%\fastfetch.exe"
 echo.
 pause
 
-echo ✅ Fastfetch est installé et prêt à l’emploi.
+echo Fastfetch est installé et prêt à l’emploi.
 echo Il s’exécutera automatiquement à chaque ouverture de CMD (une fois le registre modifié).
 endlocal
 pause
