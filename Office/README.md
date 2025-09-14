@@ -46,6 +46,3 @@ Une fois le téléchargement fini, lancez l’installation avec :
 
 ✅ Votre suite Office sera installée et prête à l’utilisation !  
 
----
-
-✍️ *Astuce : Assurez-vous d’avoir une connexion Internet stable pendant le téléchargement et l’installation.*
