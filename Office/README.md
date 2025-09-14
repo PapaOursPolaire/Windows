@@ -1,20 +1,51 @@
-Comment installer la suite Office pour accéder  aux logiciels Word, Excel, PowerPoint,... ?
+# 📦 Installation de la suite Microsoft Office
 
-Téléchargez le Setup X86 ou X64 selon le pc puis éxécutez le
+Ce guide explique comment installer la suite **Microsoft Office** (Word, Excel, PowerPoint, etc.) sur votre ordinateur.
 
-OU 
+---
 
-téléchargez setup.exe et config.xml
+## 🔽 Étape 1 : Télécharger les fichiers nécessaires
 
-Dans le dossier de destination, ouvrez  un invité de commande en administrateur 
+Deux options sont possibles :
 
-! pour changer de  répertoire, faites "cd" et coller le repertoire du dossier de destination
+1. Télécharger directement le **Setup X86 ou X64** (selon l’architecture de votre PC), puis exécuter le fichier.  
+**OU**  
+2. Télécharger les fichiers suivants :  
+   - setup.exe  
+   - config.xml
 
-Entrez :
+---
 
-setup.exe /download config.xml
+## 📂 Étape 2 : Ouvrir l’invite de commande
 
-Patientez quelques minutes puis quand vous verrezz un retour à la ligne, insérezz  : 
+1. Placez les fichiers téléchargés dans un **dossier de destination** (par exemple : C:\Office).  
+2. Ouvrez un **Invite de commandes en mode Administrateur**.  
+3. Déplacez-vous dans le dossier de destination avec la commande :  
 
-setup.exe /configure config.xml
+   cd C:\Office
 
+---
+
+## ⚙️ Étape 3 : Télécharger les fichiers d’installation
+
+Exécutez la commande suivante :
+
+   setup.exe /download config.xml
+
+👉 Patientez quelques minutes. Le téléchargement est terminé lorsque l’invite revient à la ligne.
+
+---
+
+## 🚀 Étape 4 : Installer Office
+
+Une fois le téléchargement fini, lancez l’installation avec :
+
+   setup.exe /configure config.xml
+
+---
+
+✅ Votre suite Office sera installée et prête à l’utilisation !  
+
+---
+
+✍️ *Astuce : Assurez-vous d’avoir une connexion Internet stable pendant le téléchargement et l’installation.*
