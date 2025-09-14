@@ -8,8 +8,10 @@ Ce guide explique comment installer la suite **Microsoft Office** (Word, Excel, 
 
 Deux options sont possibles :
 
-1. Télécharger directement le **Setup X86 ou X64** (selon l’architecture de votre PC), puis exécuter le fichier.  
-**OU**  
+1. Télécharger directement le **Setup X86 ou X64** (selon l’architecture de votre PC), puis exécuter le fichier.
+     
+**OU** 
+
 2. Télécharger les fichiers suivants :  
    - setup.exe  
    - config.xml
