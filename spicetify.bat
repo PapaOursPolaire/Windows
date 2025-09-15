@@ -1,22 +1,44 @@
 @echo off
 title Installation Spotify & Spicetify
-echo === Début de l'installation ===
+echo      Installation automatique
+echo   Spotify + Spicetify + Marketplace
+echo.
 
-echo [1/3] Téléchargement de Spotify...
-powershell -Command "Start-Process 'https://download.scdn.co/SpotifySetup.exe'"
+net session >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [!] Ce script doit etre lance en tant qu'administrateur.
+    pause
+    exit /b
+)
 
-echo Veuillez installer Spotify manuellement si ce n'est pas déjà fait.
-pause
+echo [1/3] Téléchargement et installation de Spotify...
+powershell -NoLogo -NoProfile -Command ^
+    "$spotifyInstaller = '$env:TEMP\SpotifySetup.exe';" ^
+    "Invoke-WebRequest 'https://download.scdn.co/SpotifySetup.exe' -OutFile $spotifyInstaller;" ^
+    "Start-Process $spotifyInstaller -ArgumentList '/silent' -Wait"
+
+echo Spotify installe avec succes.
+echo.
 
 echo [2/3] Installation de Spicetify...
-powershell -Command "iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1 | iex"
+powershell -NoLogo -NoProfile -Command ^
+    "iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1 | iex"
 
-echo [3/3] Activation du Marketplace...
-powershell -Command "Invoke-WebRequest -UseBasicParsing 'https://raw.githubusercontent.com/spicetify/spicetify-marketplace/main/resources/install.ps1' | Invoke-Expression"
+echo Spicetify installe avec succes.
+echo.
 
-echo Ouverture de PowerShell pour configuration finale...
-start powershell
+echo [3/3] Installation du Marketplace...
+powershell -NoLogo -NoProfile -Command ^
+    "iwr -useb https://raw.githubusercontent.com/spicetify/spicetify-marketplace/main/resources/install.ps1 | iex"
 
-echo Installation terminée
+echo Marketplace installe avec succes.
+echo.
+
+echo Configuration finale de Spicetify...
+powershell -NoLogo -NoProfile -Command ^
+    "spicetify backup apply enable-devtools"
+
+echo   Installation terminee !
+echo   Lance Spotify pour voir les changements.
 pause
 exit
