@@ -177,11 +177,9 @@ if exist "%MARKETPLACE_DIR%" (
 :FINAL_CONFIG
 echo [INFO] Configuration finale...
 
-:: S'assurer que Spotify est fermé
 taskkill /f /im Spotify.exe >nul 2>&1
 timeout /t 1 /nobreak >nul
 
-:: Application finale
 echo [INFO] Application de la configuration finale...
 "%SPICETIFY_PATH%" apply
 
@@ -192,9 +190,7 @@ if !errorlevel! equ 0 (
 )
 
 echo.
-echo ============================================
 echo              INSTALLATION TERMINEE
-echo ============================================
 echo.
 
 if exist "%SPICETIFY_PATH%" (
